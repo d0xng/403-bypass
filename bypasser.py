@@ -62,20 +62,26 @@ class BypassAutomator:
         
         color = severity_colors.get(severity.lower(), Fore.WHITE)
         
-        # Determine if bypassed (status 200) or not bypassed
+        # Determine if bypassed (status 200), different status, or not bypassed
         if status:
             if status == 200:
                 bypass_status = f"{Fore.GREEN}[BYPASSED]{Style.RESET_ALL}"
+            elif status != 403 and status != self.original_status:
+                # Different status - highlight in red
+                bypass_status = f"{Fore.RED}[DIFFERENT STATUS]{Style.RESET_ALL}"
             else:
                 bypass_status = f"{Fore.RED}[NOT BYPASSED]{Style.RESET_ALL}"
         else:
             bypass_status = ""
         
-        # Format: [BYPASSED]/[NOT BYPASSED] [tag] target - description
-        # Use cyan for [403-bypass] tag, green for [INFO]
-        tag_color = Fore.CYAN if tag == '403-bypass' else Fore.WHITE
+        # Format: [BYPASSED]/[NOT BYPASSED]/[DIFFERENT STATUS] [tag] target - description
+        # Use yellow for [403-bypass] tag, green for [INFO]
+        tag_color = Fore.YELLOW if tag == '403-bypass' else Fore.WHITE
         if status:
-            print(f"{bypass_status} {tag_color}[{tag}]{Style.RESET_ALL} {target} - {description} [{status}] [{size} bytes]")
+            # Highlight status code in red if it's different from 403
+            status_color = Fore.RED if status != 403 and status != self.original_status else ""
+            status_reset = Style.RESET_ALL if status_color else ""
+            print(f"{bypass_status} {tag_color}[{tag}]{Style.RESET_ALL} {target} - {description} {status_color}[{status}]{status_reset} [{size} bytes]")
         else:
             print(f"{tag_color}[{tag}]{Style.RESET_ALL} {target} - {description}")
         
@@ -1347,7 +1353,7 @@ class BypassAutomator:
     def run_all_tests(self):
         """Run all bypass tests"""
         try:
-            print(f"{Fore.CYAN}[403-bypass]{Style.RESET_ALL} {Fore.GREEN}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
+            print(f"{Fore.YELLOW}[403-bypass]{Style.RESET_ALL} {Fore.GREEN}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
             
             # Test original URL first
             is_403 = self.test_original()
@@ -1381,7 +1387,7 @@ class BypassAutomator:
                 self.print_nuclei_style('403-bypass', 'info', self.url, 'No bypasses found')
             print()
         except KeyboardInterrupt:
-            print(f"\n{Fore.RED}noo dickhead, you killed me!{Style.RESET_ALL}\n")
+            print(f"\n{Fore.RED}NOOOO DICKHEAD, YOU KILLED ME!{Style.RESET_ALL}\n")
             sys.exit(0)
 
 def print_banner():
@@ -1419,8 +1425,8 @@ def main():
         print_banner()
         
         if len(sys.argv) < 2:
-            print(f"{Fore.RED}Usage: python 403_bypass_automator.py <URL>{Style.RESET_ALL}")
-            print(f"{Fore.YELLOW}Example: python 403_bypass_automator.py https://example.com/api/admin{Style.RESET_ALL}")
+            print(f"{Fore.RED}Usage: python bypasser.py <URL>{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Example: python bypasser.py https://example.com/api/admin{Style.RESET_ALL}")
             sys.exit(1)
         
         url = sys.argv[1]
@@ -1433,7 +1439,7 @@ def main():
         automator = BypassAutomator(url)
         automator.run_all_tests()
     except KeyboardInterrupt:
-        print(f"\n{Fore.RED}noo dickhead, you killed me!{Style.RESET_ALL}\n")
+        print(f"\n{Fore.RED}NOOOO DICKHEAD, YOU KILLED ME!{Style.RESET_ALL}\n")
         sys.exit(0)
 
 if __name__ == '__main__':
