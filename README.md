@@ -16,8 +16,9 @@
 
 - **1000+ Bypass Techniques** - Comprehensive collection of bypass methods
 - **Nuclei-style Output** - Clean, color-coded results
-- **Smart Detection** - Automatically highlights successful bypasses (200 OK)
+- **Smart Detection** - Automatically highlights successful bypasses (200 OK) and different status codes
 - **Rate Limiting Protection** - Built-in 3-second delay between requests
+- **False Positive Detection** - Filters out path traversals that go to root instead of bypassing
 - **Detailed Reporting** - Shows status codes, response sizes, and techniques used
 
 ---
@@ -37,13 +38,13 @@ pip install requests colorama
 ### Basic Usage
 
 ```bash
-python 403_bypass_automator.py <URL>
+python bypasser.py <URL>
 ```
 
 ### Example
 
 ```bash
-python 403_bypass_automator.py https://example.com/api/admin
+python bypasser.py https://example.com/api/admin
 ```
 
 ---
@@ -93,19 +94,22 @@ python 403_bypass_automator.py https://example.com/api/admin
 The tool displays results in Nuclei-style format:
 
 ```
-[BYPASSED] [403-bypass] [VULNERABLE] https://example.com/api/admin..; - Path permutation [200] [1234 bytes]
+[BYPASSED] [403-bypass] https://example.com/api/admin..; - Path permutation [200] [1234 bytes]
   technique: path-permutation
   payload: ..;
 
-[NOT BYPASSED] [403-bypass] [HIGH] https://example.com/api/admin%26 - URL encoding [404] [567 bytes]
+[DIFFERENT STATUS] [403-bypass] https://example.com/api/admin%26 - URL encoding [400] [567 bytes]
   technique: url-encoding
   payload: %26
+
+[NOT BYPASSED] [403-bypass] https://example.com/api/admin - Original request [403] [162 bytes]
 ```
 
 ### Status Indicators
 
 - **[BYPASSED]** (Green) - Successful bypass with status 200
-- **[NOT BYPASSED]** (Red) - Different status code (not 200)
+- **[DIFFERENT STATUS]** (Red) - Status code changed (not 200, not 403)
+- **[NOT BYPASSED]** (Red) - Still returns 403 or original status
 
 ---
 
@@ -114,6 +118,10 @@ The tool displays results in Nuclei-style format:
 ### Delay Between Requests
 
 The tool includes a **3-second delay** between each request to avoid rate limiting and blocking. This ensures safe testing while maintaining thorough coverage.
+
+### False Positive Detection
+
+The tool automatically filters out path traversals that are likely false positives (e.g., going to root directory instead of actually bypassing the 403). This helps focus on real bypasses.
 
 ---
 
@@ -126,6 +134,12 @@ The tool includes a **3-second delay** between each request to avoid rate limiti
 - **50+ Endpath** payloads
 - **Path Permutations** in all possible positions
 - **Total: 1000+ bypass techniques**
+
+---
+
+## Keyboard Interrupt
+
+Press `Ctrl+C` to gracefully stop the tool. You'll see a friendly message instead of a traceback.
 
 ---
 

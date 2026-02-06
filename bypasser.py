@@ -75,8 +75,8 @@ class BypassAutomator:
             bypass_status = ""
         
         # Format: [BYPASSED]/[NOT BYPASSED]/[DIFFERENT STATUS] [tag] target - description
-        # Use yellow for [403-bypass] tag, green for [INFO]
-        tag_color = Fore.YELLOW if tag == '403-bypass' else Fore.WHITE
+        # Use gray for [403-bypass] tag (except first line which is green), green for [INFO]
+        tag_color = Fore.LIGHTBLACK_EX if tag == '403-bypass' else Fore.WHITE
         if status:
             # Highlight status code in red if it's different from 403
             status_color = Fore.RED if status != 403 and status != self.original_status else ""
@@ -1353,7 +1353,7 @@ class BypassAutomator:
     def run_all_tests(self):
         """Run all bypass tests"""
         try:
-            print(f"{Fore.YELLOW}[403-bypass]{Style.RESET_ALL} {Fore.GREEN}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
+            print(f"{Fore.GREEN}[403-bypass]{Style.RESET_ALL} {Fore.GREEN}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
             
             # Test original URL first
             is_403 = self.test_original()
