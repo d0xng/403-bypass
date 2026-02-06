@@ -9,6 +9,7 @@ Created by d0x
 import requests
 import sys
 import time
+import shutil
 from urllib.parse import urlparse, urljoin
 from colorama import init, Fore, Style
 
@@ -71,10 +72,12 @@ class BypassAutomator:
             bypass_status = ""
         
         # Format: [BYPASSED]/[NOT BYPASSED] [tag] target - description
+        # Use cyan for [403-bypass] tag, green for [INFO]
+        tag_color = Fore.CYAN if tag == '403-bypass' else Fore.WHITE
         if status:
-            print(f"{bypass_status} {Fore.WHITE}[{tag}]{Style.RESET_ALL} {target} - {description} [{status}] [{size} bytes]")
+            print(f"{bypass_status} {tag_color}[{tag}]{Style.RESET_ALL} {target} - {description} [{status}] [{size} bytes]")
         else:
-            print(f"{Fore.WHITE}[{tag}]{Style.RESET_ALL} {target} - {description}")
+            print(f"{tag_color}[{tag}]{Style.RESET_ALL} {target} - {description}")
         
         if extra_info:
             for key, value in extra_info.items():
@@ -1343,70 +1346,95 @@ class BypassAutomator:
     
     def run_all_tests(self):
         """Run all bypass tests"""
-        print(f"{Fore.CYAN}[403-bypass]{Style.RESET_ALL} {Fore.BLUE}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
-        
-        # Test original URL first
-        is_403 = self.test_original()
-        if not is_403:
-            self.print_nuclei_style('403-bypass', 'info', self.url, 'Original request does not return 403, continuing tests anyway')
+        try:
+            print(f"{Fore.CYAN}[403-bypass]{Style.RESET_ALL} {Fore.GREEN}[INFO]{Style.RESET_ALL} Starting bypass tests for {self.url}\n")
+            
+            # Test original URL first
+            is_403 = self.test_original()
+            if not is_403:
+                self.print_nuclei_style('403-bypass', 'info', self.url, 'Original request does not return 403, continuing tests anyway')
+                print()
+            
+            # Run all tests
+            self.test_url_encoding_bypasses()
+            self.test_double_encoding_bypasses()
+            self.test_extended_url_encoding_bypasses()
+            self.test_path_manipulation_bypasses()
+            self.test_path_permutation_bypasses()
+            self.test_path_traversal_bypasses()
+            self.test_case_variations()
+            self.test_http_methods()
+            self.test_bypass_headers()
+            self.test_protocol_bypasses()
+            self.test_port_bypasses()
+            self.test_header_path_combination_bypasses()
+            self.test_additional_path_payloads()
+            self.test_endpath_bypasses()
+            self.test_midpath_bypasses()
+            
+            # Summary
             print()
-        
-        # Run all tests
-        self.test_url_encoding_bypasses()
-        self.test_double_encoding_bypasses()
-        self.test_extended_url_encoding_bypasses()
-        self.test_path_manipulation_bypasses()
-        self.test_path_permutation_bypasses()
-        self.test_path_traversal_bypasses()
-        self.test_case_variations()
-        self.test_http_methods()
-        self.test_bypass_headers()
-        self.test_protocol_bypasses()
-        self.test_port_bypasses()
-        self.test_header_path_combination_bypasses()
-        self.test_additional_path_payloads()
-        self.test_endpath_bypasses()
-        self.test_midpath_bypasses()
-        
-        # Summary
-        print()
-        if self.successful_bypasses:
-            vulnerable_count = sum(1 for b in self.successful_bypasses if b[2] == 200)
-            self.print_nuclei_style('403-bypass', 'info', self.url, f'Found {len(self.successful_bypasses)} bypasses ({vulnerable_count} with status 200)')
-        else:
-            self.print_nuclei_style('403-bypass', 'info', self.url, 'No bypasses found')
-        print()
+            if self.successful_bypasses:
+                vulnerable_count = sum(1 for b in self.successful_bypasses if b[2] == 200)
+                self.print_nuclei_style('403-bypass', 'info', self.url, f'Found {len(self.successful_bypasses)} bypasses ({vulnerable_count} with status 200)')
+            else:
+                self.print_nuclei_style('403-bypass', 'info', self.url, 'No bypasses found')
+            print()
+        except KeyboardInterrupt:
+            print(f"\n{Fore.RED}noo dickhead, you killed me!{Style.RESET_ALL}\n")
+            sys.exit(0)
 
 def print_banner():
     """Print tool banner"""
-    banner = f"""
-{Fore.RED}
-                    HAVE ACCESS NOW?
-
-        403 Bypass Automator - Test 1000+ bypass techniques
-                    Created by d0x
-{Style.RESET_ALL}
-"""
+    # Get terminal width for centering
+    try:
+        terminal_width = shutil.get_terminal_size().columns
+    except:
+        terminal_width = 80
+    
+    # Banner text lines
+    lines = [
+        "",
+        "HAVE ACCESS NOW?",
+        "",
+        "403 Bypass Automator - Test 1000+ bypass techniques",
+        "Created by d0x",
+        ""
+    ]
+    
+    # Center each line
+    banner = ""
+    for line in lines:
+        if line:
+            padding = (terminal_width - len(line)) // 2
+            banner += " " * padding + f"{Fore.YELLOW}{line}{Style.RESET_ALL}\n"
+        else:
+            banner += "\n"
+    
     print(banner)
 
 def main():
-    # Print banner
-    print_banner()
-    
-    if len(sys.argv) < 2:
-        print(f"{Fore.RED}Usage: python 403_bypass_automator.py <URL>{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}Example: python 403_bypass_automator.py https://example.com/api/admin{Style.RESET_ALL}")
-        sys.exit(1)
-    
-    url = sys.argv[1]
-    
-    # Validar que sea una URL válida
-    if not url.startswith(('http://', 'https://')):
-        print(f"{Fore.RED}[!] Error: URL must start with http:// or https://{Style.RESET_ALL}")
-        sys.exit(1)
-    
-    automator = BypassAutomator(url)
-    automator.run_all_tests()
+    try:
+        # Print banner
+        print_banner()
+        
+        if len(sys.argv) < 2:
+            print(f"{Fore.RED}Usage: python 403_bypass_automator.py <URL>{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}Example: python 403_bypass_automator.py https://example.com/api/admin{Style.RESET_ALL}")
+            sys.exit(1)
+        
+        url = sys.argv[1]
+        
+        # Validar que sea una URL válida
+        if not url.startswith(('http://', 'https://')):
+            print(f"{Fore.RED}[!] Error: URL must start with http:// or https://{Style.RESET_ALL}")
+            sys.exit(1)
+        
+        automator = BypassAutomator(url)
+        automator.run_all_tests()
+    except KeyboardInterrupt:
+        print(f"\n{Fore.RED}noo dickhead, you killed me!{Style.RESET_ALL}\n")
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()
